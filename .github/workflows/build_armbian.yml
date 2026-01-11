@@ -1,0 +1,75 @@
+name: Build Armbian for Sunvell R69
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Armbian branch (default: current)'
+        required: false
+        default: 'current'
+      armbian_release:
+        description: 'Choose userspace release'
+        required: false
+        default: 'bookworm'
+        type: choice
+        options:
+          - bookworm
+          - jammy
+          - trixie
+      armbian_ui:
+        description: "Armbian user interface"
+        required: false
+        default: "minimal"
+        options:
+          - 'server'
+          - 'minimal'
+          - 'xfce'
+          - 'gnome'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git curl wget xz-utils bc bison flex make gcc g++ libssl-dev libncurses5-dev libncursesw5-dev liblz4-tool rsync
+
+      - name: Build Armbian image for Sunvell R69
+        run: |
+          # Build command options
+          if [[ "${{ inputs.armbian_ui }}" == minimal ]]; then
+            BUILD_DESKTOP="no"
+            BUILD_MINIMAL="yes"
+          elif [[ "${{ inputs.armbian_ui }}" == server ]]; then
+            BUILD_DESKTOP="no"
+            BUILD_MINIMAL="no"
+          else
+            BUILD_DESKTOP="yes"
+            BUILD_MINIMAL="no"
+            DESKTOP_ENVIRONMENT="${{ inputs.armbian_ui }}"
+            DESKTOP_APPGROUPS_SELECTED=""
+            DESKTOP_ENVIRONMENT_CONFIG_NAME="config_base"
+          fi
+
+          sudo ./compile.sh build \
+            BOARD=sunvell-r69 \
+            BRANCH=${{ github.event.inputs.branch }} \
+            RELEASE=${{ github.event.inputs.armbian_release }} \
+            KERNEL_CONFIGURE="no" \
+            BUILD_DESKTOP="${BUILD_DESKTOP}" \
+            BUILD_MINIMAL="${BUILD_MINIMAL}" \
+            DESKTOP_ENVIRONMENT="${DESKTOP_ENVIRONMENT}" \
+            DESKTOP_APPGROUPS_SELECTED="${DESKTOP_APPGROUPS_SELECTED}" \
+            DESKTOP_ENVIRONMENT_CONFIG_NAME="${DESKTOP_ENVIRONMENT_CONFIG_NAME}" \
+            COMPRESS_OUTPUTIMAGE=sha,gpg,img,xz \
+            EXPERT="yes"
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: armbian-sunvell-r69-image
+          path: output/images/
