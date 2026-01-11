@@ -20,6 +20,7 @@ on:
         description: "Armbian user interface"
         required: false
         default: "minimal"
+        type: choice
         options:
           - 'server'
           - 'minimal'
